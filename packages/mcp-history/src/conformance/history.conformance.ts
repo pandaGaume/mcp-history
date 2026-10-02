@@ -6,7 +6,9 @@ import {
     type IAtTimeSeries,
     type IHistoryCapabilities,
     type IHistorySample,
+    type IProcessedColumns,
     type IProcessedSeries,
+    type IRawColumns,
     type IRawSeries,
     type IStoredSample,
     type Quality,
@@ -197,14 +199,75 @@ export function describeHistoryStoreConformance(name: string, factory: () => IHi
                 let pages = 0;
                 do {
                     const page = await store.readRawAsync({ ids: [A, B], start: at(0), end: at(10), limit: 3, ...(continuationPoint ? { continuationPoint } : {}) });
-                    const count = page.series.reduce((total, item) => total + (isSeriesError(item) ? 0 : item.samples.length), 0);
-                    expect(count).toBeLessThanOrEqual(3);
-                    for (const item of page.series) if (!isSeriesError(item)) seen[item.id]!.push(...item.samples.map((s) => s.value));
+                    const rows = page.series.filter((item): item is IRawSeries => !isSeriesError(item));
+                    expect(rows.reduce((total, item) => total + item.samples.length, 0)).toBeLessThanOrEqual(3);
+                    for (const item of rows) seen[item.id]!.push(...item.samples.map((s) => s.value));
                     continuationPoint = page.continuationPoint ?? undefined;
                     expect(++pages).toBeLessThan(10);
                 } while (continuationPoint);
                 expect(seen).toEqual({ [A]: [0, 1, 2, 3], [B]: [10, 11, 12] });
                 expect(pages).toBe(3);
+            });
+        });
+
+        describe("columns format", () => {
+            it("lays out raw series as parallel arrays, instants in epoch milliseconds", async () => {
+                await store.appendAsync([sample(A, 1, 10), sample(A, 2, 11, "uncertain", false), sample(A, 3, 0, "bad")]);
+                const rows = await store.readRawAsync({ ids: [A], start: at(0), end: at(10) });
+                const columns = await store.readRawAsync({ ids: [A], start: at(0), end: at(10), format: "columns" });
+                expect(rows.format).toBe("rows");
+                expect(columns.format).toBe("columns");
+                const ms = (seconds: number) => T0 + seconds * 1000;
+                expect(columns.series).toEqual([
+                    {
+                        id: A,
+                        time: [ms(1), ms(2.5), ms(3)],
+                        value: [10, 11, 0],
+                        quality: ["good", "uncertain", "bad"],
+                        sourceTimestamp: [ms(1), null, ms(3)],
+                        receivedTimestamp: [ms(1.5), ms(2.5), ms(3.5)],
+                        provider: ["conformance", "conformance", "conformance"],
+                    },
+                ]);
+                // The same samples as the rows format, field for field.
+                const [series] = columns.series as IRawColumns[];
+                expect(raw(rows.series, A).map((item) => Date.parse(item.time))).toEqual(series!.time);
+            });
+
+            it("pages through columns exactly as through rows", async () => {
+                await store.appendAsync([...[0, 1, 2, 3].map((s) => sample(A, s, s)), ...[0, 1, 2].map((s) => sample(B, s, 10 + s))]);
+                const seen: Record<string, unknown[]> = { [A]: [], [B]: [] };
+                let continuationPoint: string | undefined;
+                do {
+                    const page = await store.readRawAsync({
+                        ids: [A, B],
+                        start: at(0),
+                        end: at(10),
+                        limit: 3,
+                        format: "columns",
+                        ...(continuationPoint ? { continuationPoint } : {}),
+                    });
+                    for (const item of page.series as IRawColumns[]) seen[item.id]!.push(...item.value);
+                    continuationPoint = page.continuationPoint ?? undefined;
+                } while (continuationPoint);
+                expect(seen).toEqual({ [A]: [0, 1, 2, 3], [B]: [10, 11, 12] });
+            });
+
+            it("lays out processed series as bucket starts and one array per aggregate", async () => {
+                await store.appendAsync([sample(A, -5, 2), sample(A, 1, 4), sample(A, 2, 6, "uncertain"), sample(A, 4, 100, "bad"), sample(A, 6, 8), sample(A, 22, 10)]);
+                const request = { ids: [A], start: at(0), end: at(25), intervalMs: 10_000, aggregates: ["avg", "timeWeightedAvg", "goodRatio"] as const };
+                const rows = await store.readProcessedAsync({ ...request, aggregates: [...request.aggregates] });
+                const columns = await store.readProcessedAsync({ ...request, aggregates: [...request.aggregates], format: "columns" });
+                expect(columns.format).toBe("columns");
+                const [series] = columns.series as IProcessedColumns[];
+                const [reference] = rows.series as IProcessedSeries[];
+                expect(series!.start).toEqual([T0, T0 + 10_000, T0 + 20_000]);
+                expect(series!.computedBy).toBe(reference!.computedBy);
+                for (const aggregate of request.aggregates) expect(series!.values[aggregate]).toEqual(reference!.buckets.map((bucket) => bucket.values[aggregate]));
+            });
+
+            it("refuses an unknown format with invalid_request", async () => {
+                expect((await rejection(store.readRawAsync({ ids: [A], start: at(0), end: at(10), format: "csv" as never }))).code).toBe("invalid_request");
             });
         });
 

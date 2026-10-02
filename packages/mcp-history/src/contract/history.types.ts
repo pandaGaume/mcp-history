@@ -13,6 +13,15 @@ export const AGGREGATES = ["count", "min", "max", "avg", "sum", "first", "last",
 export type Aggregate = (typeof AGGREGATES)[number];
 
 export const AT_TIME_MODES = ["stepped", "interpolated"] as const;
+
+/**
+ * How `read_raw` and `read_processed` lay out their series:
+ * - `rows` (default): one object per sample or bucket, instants as ISO strings;
+ * - `columns`: parallel arrays per series, instants as epoch milliseconds. The
+ *   same data, several times smaller on the wire: for charts and bulk reads.
+ */
+export const READ_FORMATS = ["rows", "columns"] as const;
+export type ReadFormat = (typeof READ_FORMATS)[number];
 export type AtTimeMode = (typeof AT_TIME_MODES)[number];
 
 // ── Samples ─────────────────────────────────────────────────────────────────
@@ -73,6 +82,8 @@ export interface IReadRawRequest {
     readonly limit?: number;
     /** Opaque, from the previous page of the same request. */
     readonly continuationPoint?: string;
+    /** Default `rows`. */
+    readonly format?: ReadFormat;
 }
 
 export interface IRawSeries {
@@ -81,12 +92,30 @@ export interface IRawSeries {
     readonly samples: readonly IStoredSample[];
 }
 
+/**
+ * A raw series in the `columns` format: entry `i` of every array is sample `i`.
+ * The time axis is `time`; it equals `sourceTimestamp[i]` when that is not
+ * `null`, `receivedTimestamp[i]` otherwise, which is what `timeOrigin` says
+ * in the `rows` format.
+ */
+export interface IRawColumns {
+    readonly id: UnsId;
+    /** Epoch milliseconds, ordered by time, then by reception. */
+    readonly time: readonly number[];
+    readonly value: readonly unknown[];
+    readonly quality: readonly Quality[];
+    readonly sourceTimestamp: readonly (number | null)[];
+    readonly receivedTimestamp: readonly number[];
+    readonly provider: readonly string[];
+}
+
 export interface IReadRawResult {
+    readonly format: ReadFormat;
     /**
      * In the order of `ids`. A page carries a series for each id it reaches,
      * possibly empty; ids a previous page completed are not repeated.
      */
-    readonly series: readonly (IRawSeries | ISeriesError)[];
+    readonly series: readonly (IRawSeries | IRawColumns | ISeriesError)[];
     /** `null` on the last page. */
     readonly continuationPoint: string | null;
 }
@@ -100,6 +129,8 @@ export interface IReadProcessedRequest {
     /** Bucket width. The last bucket is cut at `end`. */
     readonly intervalMs: number;
     readonly aggregates: readonly Aggregate[];
+    /** Default `rows`. */
+    readonly format?: ReadFormat;
 }
 
 export interface IBucket {
@@ -116,8 +147,23 @@ export interface IProcessedSeries {
     readonly computedBy: "store" | "router";
 }
 
+/**
+ * A processed series in the `columns` format: entry `i` of every array is
+ * bucket `i`. Bucket `i` ends where bucket `i + 1` starts; the last one ends
+ * at the request's `end`.
+ */
+export interface IProcessedColumns {
+    readonly id: UnsId;
+    /** Epoch milliseconds. */
+    readonly start: readonly number[];
+    /** One array per requested aggregate; `null` where a bucket gives it no value. */
+    readonly values: Readonly<Partial<Record<Aggregate, readonly unknown[]>>>;
+    readonly computedBy: "store" | "router";
+}
+
 export interface IReadProcessedResult {
-    readonly series: readonly (IProcessedSeries | ISeriesError)[];
+    readonly format: ReadFormat;
+    readonly series: readonly (IProcessedSeries | IProcessedColumns | ISeriesError)[];
 }
 
 // ── read_at_time ────────────────────────────────────────────────────────────

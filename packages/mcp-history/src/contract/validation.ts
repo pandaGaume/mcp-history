@@ -1,5 +1,16 @@
 import { HistoryError, invalid, type IHistoryErrorBody } from "./errors";
-import { AGGREGATES, AT_TIME_MODES, type Aggregate, type HistoryValueType, type IHistoryCapabilities, type IHistorySample, type Quality, type TimeOrigin } from "./history.types";
+import {
+    AGGREGATES,
+    AT_TIME_MODES,
+    READ_FORMATS,
+    type Aggregate,
+    type ReadFormat,
+    type HistoryValueType,
+    type IHistoryCapabilities,
+    type IHistorySample,
+    type Quality,
+    type TimeOrigin,
+} from "./history.types";
 import { UnsPath, type UnsId } from "@cyanmycelium/mcp-uns";
 
 const QUALITIES: readonly Quality[] = ["good", "uncertain", "bad"];
@@ -66,6 +77,12 @@ export function parseAggregates(aggregates: unknown): Aggregate[] {
         if (!AGGREGATES.includes(aggregate as Aggregate)) throw invalid(`unknown aggregate "${String(aggregate)}"; expected one of ${AGGREGATES.join(", ")}`);
     }
     return [...new Set(aggregates as Aggregate[])];
+}
+
+export function parseFormat(format: unknown): ReadFormat {
+    if (format === undefined) return "rows";
+    if (!READ_FORMATS.includes(format as ReadFormat)) throw invalid(`format must be one of ${READ_FORMATS.join(", ")}`);
+    return format as ReadFormat;
 }
 
 export function parseAtTimeMode(mode: unknown): (typeof AT_TIME_MODES)[number] {

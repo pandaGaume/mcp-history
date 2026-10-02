@@ -6,9 +6,13 @@ import { describeHistoryStoreConformance } from "@cyanmycelium/mcp-history/confo
 describeHistoryStoreConformance("MemoryHistoryStore", () => new MemoryHistoryStore());
 
 /** A store published by HistoryBehavior, reached back through MCP: the two forms of the contract must agree. */
-async function throughSlot(store: IHistoryStore): Promise<IHistoryStore> {
+async function throughSlot(store: IHistoryStore, payload: "both" | "structured" = "both"): Promise<IHistoryStore> {
     const [serverEnd, clientEnd] = LoopbackTransport.createPair();
-    const server = new McpServerBuilder().withName("history").withTransport(serverEnd).register(new HistoryBehavior(store, openGuard())).build();
+    const server = new McpServerBuilder()
+        .withName("history")
+        .withTransport(serverEnd)
+        .register(new HistoryBehavior(store, openGuard(), { payload }))
+        .build();
     await server.start();
     const client = new McpClient({ name: "conformance", version: "0.1.0" }, clientEnd, 5_000);
     await client.connect();
@@ -30,3 +34,4 @@ async function throughSlot(store: IHistoryStore): Promise<IHistoryStore> {
 }
 
 describeHistoryStoreConformance("MemoryHistoryStore through a history slot", () => throughSlot(new MemoryHistoryStore()));
+describeHistoryStoreConformance("MemoryHistoryStore through a history slot, structuredContent only", () => throughSlot(new MemoryHistoryStore(), "structured"));

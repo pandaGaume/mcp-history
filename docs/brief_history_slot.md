@@ -48,8 +48,8 @@ Source de vérité : [`packages/mcp-history/src/contract`](../packages/mcp-histo
 |---|---|---|
 | `getCapabilities` | | valueTypes, nativeAggregates, operations.delete, retention, durability, limits |
 | `append` | échantillons | `{ accepted, duplicates, rejected[{ index, error }] }` |
-| `readRaw` | ids, `[start, end)`, limit, continuationPoint | séries d'échantillons, continuationPoint |
-| `readProcessed` | ids, `[start, end)`, intervalMs, agrégats | buckets par id, `computedBy` |
+| `readRaw` | ids, `[start, end)`, limit, continuationPoint, format | séries d'échantillons, continuationPoint |
+| `readProcessed` | ids, `[start, end)`, intervalMs, agrégats, format | buckets par id, `computedBy` |
 | `readAtTime` | ids, instants, `stepped` ou `interpolated` | valeur, qualité et `basis` par instant |
 | `browse` | racine UNS, limit, continuationPoint | ids avec first, last, count |
 | `deleteRange` | ids, `[start, end)` | `{ deleted, errors }` |
@@ -63,6 +63,7 @@ Règles communes :
 - **Valeurs `bad`** : historisées et relues par `readRaw`. Elles ne comptent que dans `goodRatio`.
 - **Agrégats** : `count`, `min`, `max`, `sum`, `avg`, `first`, `last`, `timeWeightedAvg` (marches, à partir de la dernière valeur antérieure au bucket), `goodRatio`. Un bucket vide vaut `null`. Les booléens comptent 0 ou 1.
 - **`readAtTime`** : `exact`, `stepped`, `interpolated` (entre deux nombres utilisables seulement, sans extrapolation) ou `none`.
+- **Format** : `rows` par défaut (un objet par échantillon ou bucket, instants ISO) ou `columns` (tableaux parallèles par série, instants en millisecondes epoch). Les mêmes données, plusieurs fois moins lourdes. Un store construit des lignes et appelle `formatRawSeries` ou `formatProcessedSeries` en sortie : aucun backend n'a à écrire les colonnes lui-même.
 - **Erreurs par id** : un id refusé ou injoignable revient comme `{ id, error }` dans la liste des séries, et le reste de la requête est servi.
 - **Erreurs** : `HistoryError { code, message, decisionId?, detail? }`. Les codes sont en snake_case, comme dans `ScadaError`, et sont reconstruits à l'identique de l'autre côté d'un slot.
 
@@ -118,11 +119,20 @@ Ce que ça dit :
 - **Le coût est dans le format de la réponse.** `McpToolResults.json` envoie le résultat deux fois (`text` et `structuredContent`), et chaque bucket répète ses instants ISO : environ 320 octets par bucket, 490 par échantillon brut. Le temps au-delà du calcul est de la sérialisation JSON.
 - **Un client qui affiche une courbe lit des agrégats**, pas du brut : `read_processed` avec un intervalle à la largeur de l'affichage, borné par `maxBucketsPerRead`.
 
-### Améliorations
+### Après le format colonnes et l'option `payload`
 
-1. **Format colonnes** : un paramètre `format: "columns"` sur `read_raw` et `read_processed`, qui renvoie par id `{ t: [epoch ms], avg: [...], quality: [...] }`. Gain attendu : un facteur 10 à 20 sur la taille.
-2. **Pas de double charge** : option du behavior pour n'envoyer le résultat qu'en `structuredContent`, avec un `text` court. Les deux formes restent le défaut pour les clients MCP plus anciens.
-3. **Agrégation native** dans chaque backend (`GROUP BY` par tranche de temps, index `(id, t_ms)`, `aggregateWindow` pour InfluxDB) : le repli calculé par le routeur est réservé aux petits volumes.
+Même banc. `payload: "structured"` est une option de `HistoryBehavior` : le résultat part une seule fois, en `structuredContent`, avec un `text` court. Le défaut reste `both`, pour les clients MCP qui ne lisent que `text`.
+
+| Payload | Format | `read_processed` 4 ids × 1008 buckets × 3 agrégats | `read_raw` 60 480 échantillons |
+|---|---|---|---|
+| both | rows (avant) | 43,5 ms, 1 286 Kio | 473 ms, 28,4 Mio (491 o par échantillon) |
+| both | columns | 30,9 ms, 554 Kio | 217 ms, 7,9 Mio (137 o) |
+| structured | rows | 30,9 ms, 612 Kio | 260 ms, 13,4 Mio (232 o) |
+| structured | columns | **26,4 ms, 277 Kio** | **131 ms, 3,9 Mio (67 o)** |
+
+Ensemble, les deux divisent la taille par 4,6 (agrégats) et 7,4 (brut). Sur les agrégats, il ne reste presque que le calcul du store (16 ms) : le gain suivant viendra de l'agrégation native des backends (`GROUP BY` par tranche de temps, index `(id, t_ms)`), et le repli calculé par un routeur reste réservé aux petits volumes.
+
+Un broker n'accepte qu'**un propriétaire par domaine** : deux slots ne peuvent pas déclarer `history`. Il y a donc un seul slot `history` par broker, et les slots de stockage restent derrière lui, protégés et sans déclaration.
 
 ## Enregistreur (recorder)
 
@@ -137,7 +147,7 @@ C'est un composant séparé, client de `scada` et de `history`, et le seul princ
 1. **Fait** : contrat, `MemoryHistoryStore`, `HistoryBehavior`, `HistorySlotStore`, `IAccessGuard` avec le mode broker, déclaration, suite de conformité. 81 tests, dont 5 contre un vrai broker.
 2. **SQLite et recorder** : paquet `mcp-history-sqlite` (conformité incluse), `HistoryRecorder` sur le banc `motor01`.
 3. **Routeur** : `RoutingHistoryStore` (routage UNS, agrégats de repli, `computedBy: "router"`), slots de stockage protégés.
-4. **Performance** : format colonnes, option `structuredContent` seul.
+4. **Performance** : fait, format colonnes et option `payload: "structured"`.
 5. **InfluxDB, DuckDB, MySQL.**
 
 ## Questions ouvertes

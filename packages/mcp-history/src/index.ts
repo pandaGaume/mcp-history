@@ -5,6 +5,7 @@ export * from "./contract/history.store";
 export * from "./contract/validation";
 export * from "./contract/semantics";
 export * from "./contract/continuation";
+export * from "./contract/columns";
 
 // Stores
 export * from "./memory/memory.history.store";

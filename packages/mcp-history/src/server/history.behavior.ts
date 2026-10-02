@@ -10,13 +10,35 @@ import {
 } from "@cyanmycelium/mcp-core";
 import { HistoryError, invalid, type IHistoryErrorBody } from "../contract/errors";
 import type { IHistoryStore } from "../contract/history.store";
-import { AGGREGATES, AT_TIME_MODES, type IAppendResult, type IDeleteRangeResult, type IHistorySample, type IRejectedSample, type ISeriesError } from "../contract/history.types";
+import {
+    AGGREGATES,
+    AT_TIME_MODES,
+    READ_FORMATS,
+    type IAppendResult,
+    type IDeleteRangeResult,
+    type IHistorySample,
+    type IRejectedSample,
+    type ISeriesError,
+    type ReadFormat,
+} from "../contract/history.types";
 import { UnsPath, type UnsId } from "@cyanmycelium/mcp-uns";
-import { parseIds } from "../contract/validation";
+import { parseFormat, parseIds } from "../contract/validation";
 import { AccessUnavailableError, unsChecks, type AccessOutcome, type IAccessDecision, type IAccessGuard } from "@cyanmycelium/mcp-uns";
 import { HISTORY_CAPABILITIES } from "./declaration";
 
 export const HISTORY_CAPABILITIES_URI = "history://capabilities";
+
+export interface IHistoryBehaviorOptions {
+    /**
+     * How a tool result carries its data:
+     * - `both` (default): a JSON `text` block and the same object as
+     *   `structuredContent`, for every MCP client, old and new;
+     * - `structured`: the object only as `structuredContent`, with a short
+     *   `text`. Half the bytes; for clients that read `structuredContent`
+     *   (MCP 2025-06-18), such as `HistorySlotStore`.
+     */
+    readonly payload?: "both" | "structured";
+}
 
 interface IGuarded {
     readonly allowed: UnsId[];
@@ -47,9 +69,15 @@ function inRequestOrder<T extends { readonly id: UnsId }>(ids: readonly UnsId[],
 class HistoryAdapter extends McpAdapterBase {
     constructor(
         private readonly _store: IHistoryStore,
-        private readonly _guard: IAccessGuard
+        private readonly _guard: IAccessGuard,
+        private readonly _payload: "both" | "structured"
     ) {
         super("history");
+    }
+
+    private _json(data: object): McpToolResult {
+        if (this._payload === "both") return McpToolResults.json(data);
+        return { content: [{ type: "text", text: "The result is in structuredContent." }], structuredContent: data as { [key: string]: unknown } };
     }
 
     async readResourceAsync(uri: string): Promise<McpResourceContent | undefined> {
@@ -61,19 +89,19 @@ class HistoryAdapter extends McpAdapterBase {
         try {
             switch (toolName) {
                 case "history.capabilities":
-                    return McpToolResults.json(await this._store.getCapabilitiesAsync());
+                    return this._json(await this._store.getCapabilitiesAsync());
                 case "history.browse":
-                    return McpToolResults.json(await this._browseAsync(args, request));
+                    return this._json(await this._browseAsync(args, request));
                 case "history.read_raw":
-                    return McpToolResults.json(await this._readAsync(args, request, (ids) => this._store.readRawAsync({ ...args, ids } as never), true));
+                    return this._json(await this._readAsync(args, request, (ids) => this._store.readRawAsync({ ...args, ids } as never), true, parseFormat(args.format)));
                 case "history.read_processed":
-                    return McpToolResults.json(await this._readAsync(args, request, (ids) => this._store.readProcessedAsync({ ...args, ids } as never), false));
+                    return this._json(await this._readAsync(args, request, (ids) => this._store.readProcessedAsync({ ...args, ids } as never), false, parseFormat(args.format)));
                 case "history.read_at_time":
-                    return McpToolResults.json(await this._readAsync(args, request, (ids) => this._store.readAtTimeAsync({ ...args, ids } as never), false));
+                    return this._json(await this._readAsync(args, request, (ids) => this._store.readAtTimeAsync({ ...args, ids } as never), false));
                 case "history.append":
-                    return McpToolResults.json(await this._appendAsync(args, request));
+                    return this._json(await this._appendAsync(args, request));
                 case "history.delete_range":
-                    return McpToolResults.json(await this._deleteAsync(args, request));
+                    return this._json(await this._deleteAsync(args, request));
                 default:
                     return McpToolResults.error(`unknown tool: ${toolName}`);
             }
@@ -108,13 +136,14 @@ class HistoryAdapter extends McpAdapterBase {
         args: Record<string, unknown>,
         request: IMcpRequestContext | undefined,
         read: (ids: UnsId[]) => Promise<T>,
-        paged: boolean
+        paged: boolean,
+        format?: ReadFormat
     ): Promise<T> {
         const ids = parseIds(args.ids).map((path) => path.id);
         const guarded = await this._guardAsync(HISTORY_CAPABILITIES.read, ids, request);
         // A continuation page does not repeat the refusals of the first one.
         const denied = paged && args.continuationPoint !== undefined ? [] : guarded.denied;
-        if (guarded.allowed.length === 0) return (paged ? { series: denied, continuationPoint: null } : { series: denied }) as unknown as T;
+        if (guarded.allowed.length === 0) return { ...(format ? { format } : {}), series: denied, ...(paged ? { continuationPoint: null } : {}) } as unknown as T;
         const result = await read(guarded.allowed);
         return { ...result, series: inRequestOrder(ids, result.series, denied) };
     }
@@ -218,8 +247,8 @@ class HistoryAdapter extends McpAdapterBase {
  * Mutations report their outcome under the decision that allowed them.
  */
 export class HistoryBehavior extends McpBehavior {
-    constructor(store: IHistoryStore, guard: IAccessGuard) {
-        super(new HistoryAdapter(store, guard), { namespace: "history" });
+    constructor(store: IHistoryStore, guard: IAccessGuard, options: IHistoryBehaviorOptions = {}) {
+        super(new HistoryAdapter(store, guard, options.payload ?? "both"), { namespace: "history" });
     }
 
     protected override _buildResources(): McpResource[] {
@@ -233,6 +262,12 @@ export class HistoryBehavior extends McpBehavior {
         const instant = (what: string) => ({ type: "string", description: `${what}, ISO 8601 with an offset, e.g. 2026-10-02T08:00:00.000Z` });
         const range = { start: instant("Inclusive start"), end: instant("Exclusive end") };
         const continuationPoint = { type: "string", description: "Opaque, from the previous page of the same request." };
+        const format = {
+            type: "string",
+            enum: [...READ_FORMATS],
+            description:
+                "rows (default): one object per sample or bucket. columns: parallel arrays per series, instants in epoch ms; several times smaller, for charts and bulk reads.",
+        };
         const sample = {
             type: "object",
             properties: {
@@ -263,7 +298,11 @@ export class HistoryBehavior extends McpBehavior {
                 name: "history.read_raw",
                 description:
                     "Read recorded samples in [start, end), ordered by id then time, with their quality, both timestamps and which one is the time axis. Paged: pass continuationPoint back until it is null.",
-                inputSchema: { type: "object", properties: { ids, ...range, limit: { type: "integer", minimum: 1 }, continuationPoint }, required: ["ids", "start", "end"] },
+                inputSchema: {
+                    type: "object",
+                    properties: { ids, ...range, limit: { type: "integer", minimum: 1 }, continuationPoint, format },
+                    required: ["ids", "start", "end"],
+                },
             },
             {
                 name: "history.read_processed",
@@ -276,6 +315,7 @@ export class HistoryBehavior extends McpBehavior {
                         ...range,
                         intervalMs: { type: "integer", minimum: 1 },
                         aggregates: { type: "array", items: { type: "string", enum: [...AGGREGATES] }, minItems: 1 },
+                        format,
                     },
                     required: ["ids", "start", "end", "intervalMs", "aggregates"],
                 },

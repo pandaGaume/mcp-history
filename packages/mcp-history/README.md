@@ -39,7 +39,7 @@ await server.start();
 await transport.broker.declare(buildHistoryDeclaration({ version: "1", namespace: "uns://site1" }));
 ```
 
-UNS ids and broker-decided access come from [mcp-uns](https://github.com/pandaGaume/mcp-uns). On a bench without broker policy, pass its `openGuard()` instead of `BrokerAccessGuard`: everything is allowed and nothing is audited.
+UNS ids and broker-decided access come from [mcp-uns](https://github.com/pandaGaume/mcp-uns). `new HistoryBehavior(store, guard, { payload: "structured" })` sends each result once, as `structuredContent`: with `format: "columns"`, reads are 4 to 7 times smaller. On a bench without broker policy, pass its `openGuard()` instead of `BrokerAccessGuard`: everything is allowed and nothing is audited.
 
 ## Tools
 
@@ -47,7 +47,7 @@ UNS ids and broker-decided access come from [mcp-uns](https://github.com/pandaGa
 |---|---|
 | `history.capabilities` | none |
 | `history.browse` | `history.read` (ids you may not read are left out) |
-| `history.read_raw`, `history.read_processed`, `history.read_at_time` | `history.read` |
+| `history.read_raw`, `history.read_processed`, `history.read_at_time` | `history.read` (`format: "columns"` on the first two: parallel arrays, epoch ms) |
 | `history.append` | `history.record`, outcome reported |
 | `history.delete_range` | `history.admin`, outcome reported |
 

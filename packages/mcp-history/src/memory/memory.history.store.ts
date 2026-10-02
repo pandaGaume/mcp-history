@@ -24,6 +24,7 @@ import {
     type IRejectedSample,
     type IStoredSample,
 } from "../contract/history.types";
+import { formatProcessedSeries, formatRawSeries } from "../contract/columns";
 import { checkBucketRequest, compareTimed, computeBuckets, locate, valueAtTime, type ITimedValue } from "../contract/semantics";
 import {
     formatInstant,
@@ -31,6 +32,7 @@ import {
     normalizeSample,
     parseAggregates,
     parseAtTimeMode,
+    parseFormat,
     parseIds,
     parseInstant,
     parseLimit,
@@ -158,6 +160,8 @@ export class MemoryHistoryStore implements IHistoryStore {
         const ids = parseIds(request.ids).map((path) => path.id);
         const { startMs, endMs } = parseRange(request.start, request.end);
         const limit = parseLimit(request.limit, this._capabilities.limits.maxPointsPerRead);
+        const format = parseFormat(request.format);
+        const page = (series: IRawSeries[], continuationPoint: string | null): IReadRawResult => ({ format, series: formatRawSeries(series, format), continuationPoint });
 
         // Resume after the last sample returned: index of its id, and its (time, received) key.
         let firstIndex = 0;
@@ -182,16 +186,16 @@ export class MemoryHistoryStore implements IHistoryStore {
             if (room === 0) {
                 if (taken.length < pending.length) {
                     const last = taken[taken.length - 1]!;
-                    return { series, continuationPoint: encodeContinuation({ i, t: last.timeMs, r: last.receivedMs }) };
+                    return page(series, encodeContinuation({ i, t: last.timeMs, r: last.receivedMs }));
                 }
                 // This id is complete; continue at the next one that still has samples.
                 for (let next = i + 1; next < ids.length; next++) {
-                    if (this._inRange(ids[next]!, startMs, endMs).length > 0) return { series, continuationPoint: encodeContinuation({ i: next }) };
+                    if (this._inRange(ids[next]!, startMs, endMs).length > 0) return page(series, encodeContinuation({ i: next }));
                 }
-                return { series, continuationPoint: null };
+                return page(series, null);
             }
         }
-        return { series, continuationPoint: null };
+        return page(series, null);
     }
 
     async readProcessedAsync(request: IReadProcessedRequest, signal?: AbortSignal): Promise<IReadProcessedResult> {
@@ -200,6 +204,7 @@ export class MemoryHistoryStore implements IHistoryStore {
         const { startMs, endMs } = parseRange(request.start, request.end);
         const intervalMs = checkBucketRequest(startMs, endMs, request.intervalMs, this._capabilities.limits.maxBucketsPerRead);
         const aggregates = parseAggregates(request.aggregates);
+        const format = parseFormat(request.format);
 
         const series: IProcessedSeries[] = ids.map((id) => {
             const records = this._series.get(id) ?? [];
@@ -207,7 +212,7 @@ export class MemoryHistoryStore implements IHistoryStore {
             const prior = first > 0 ? records[first - 1] : undefined;
             return { id, buckets: computeBuckets(this._inRange(id, startMs, endMs), prior, startMs, endMs, intervalMs, aggregates), computedBy: "store" };
         });
-        return { series };
+        return { format, series: formatProcessedSeries(series, format, aggregates) };
     }
 
     async readAtTimeAsync(request: IReadAtTimeRequest, signal?: AbortSignal): Promise<IReadAtTimeResult> {
