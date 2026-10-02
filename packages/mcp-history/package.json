@@ -1,0 +1,62 @@
+{
+    "name": "@cyanmycelium/mcp-history",
+    "version": "0.1.0",
+    "description": "The history.v1 contract above an mcp-broker: UNS-addressed time series, its MCP slot surface, broker-decided access, an in-memory store and the conformance suite every store must pass.",
+    "type": "module",
+    "license": "Apache-2.0",
+    "author": "Guillaume Pelletier (CyanMycelium)",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/pandaGaume/mcp-history.git",
+        "directory": "packages/mcp-history"
+    },
+    "homepage": "https://github.com/pandaGaume/mcp-history#readme",
+    "bugs": {
+        "url": "https://github.com/pandaGaume/mcp-history/issues"
+    },
+    "keywords": [
+        "mcp",
+        "history",
+        "historian",
+        "time-series",
+        "uns",
+        "scada",
+        "mcp-broker",
+        "cyanmycelium"
+    ],
+    "engines": {
+        "node": ">=20.11.0"
+    },
+    "sideEffects": false,
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js"
+        },
+        "./conformance": {
+            "types": "./dist/conformance/index.d.ts",
+            "import": "./dist/conformance/index.js"
+        }
+    },
+    "files": [
+        "dist"
+    ],
+    "scripts": {
+        "build": "tsup",
+        "prepublishOnly": "npm run build"
+    },
+    "dependencies": {
+        "@cyanmycelium/mcp-uns": "^0.1.0"
+    },
+    "peerDependencies": {
+        "@cyanmycelium/mcp-core": "^1.4.0",
+        "vitest": ">=1.6.0"
+    },
+    "peerDependenciesMeta": {
+        "vitest": {
+            "optional": true
+        }
+    }
+}

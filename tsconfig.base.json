@@ -1,0 +1,16 @@
+{
+    "compilerOptions": {
+        "moduleResolution": "bundler",
+        "module": "ESNext",
+        "target": "es2022",
+        "lib": ["es2022", "dom"],
+        "types": ["node"],
+        "declaration": true,
+        "sourceMap": true,
+        "strict": true,
+        "noImplicitOverride": true,
+        "noImplicitReturns": true,
+        "noUnusedLocals": true,
+        "skipLibCheck": true
+    }
+}

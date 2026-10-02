@@ -1,0 +1,31 @@
+{
+    "name": "@cyanmycelium/mcp-history-workspace",
+    "version": "0.1.0",
+    "description": "History slots for an mcp-broker: the history.v1 contract, its MCP surface, and pluggable stores.",
+    "type": "module",
+    "license": "Apache-2.0",
+    "private": true,
+    "engines": {
+        "node": ">=20.11.0"
+    },
+    "workspaces": [
+        "packages/*"
+    ],
+    "scripts": {
+        "build": "npm run build -w @cyanmycelium/mcp-history",
+        "typecheck": "tsc -p tsconfig.json --noEmit",
+        "test": "vitest run",
+        "format": "prettier --check \"packages/*/src/**/*.ts\" \"tests/**/*.ts\"",
+        "format:fix": "prettier --write \"packages/*/src/**/*.ts\" \"tests/**/*.ts\""
+    },
+    "devDependencies": {
+        "@cyanmycelium/mcp-broker": "^1.6.0",
+        "@cyanmycelium/mcp-broker-provider": "^0.3.0",
+        "@cyanmycelium/mcp-core": "^1.4.0",
+        "@types/node": "^20.11.0",
+        "prettier": "^3.2.0",
+        "tsup": "^8.5.1",
+        "typescript": "^5.4.0",
+        "vitest": "^1.6.0"
+    }
+}
