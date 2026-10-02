@@ -3,6 +3,7 @@
     "compilerOptions": {
         "baseUrl": ".",
         "paths": {
+            "@cyanmycelium/mcp-history-sqlite": ["packages/mcp-history-sqlite/src/index.ts"],
             "@cyanmycelium/mcp-history": ["packages/mcp-history/src/index.ts"],
             "@cyanmycelium/mcp-history/conformance": ["packages/mcp-history/src/conformance/index.ts"]
         }

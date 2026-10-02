@@ -134,6 +134,22 @@ Ensemble, les deux divisent la taille par 4,6 (agrégats) et 7,4 (brut). Sur les
 
 Un broker n'accepte qu'**un propriétaire par domaine** : deux slots ne peuvent pas déclarer `history`. Il y a donc un seul slot `history` par broker, et les slots de stockage restent derrière lui, protégés et sans déclaration.
 
+## Backend SQLite
+
+`@cyanmycelium/mcp-history-sqlite`, sur `better-sqlite3` 12 (Node 20 à 26), avec le schéma commun ci-dessus. Le temps est stocké en millisecondes epoch dans `t_ms`, `received_ms` et `source_ms`, et une table `history_meta` porte la version du schéma : un fichier d'une autre version est refusé.
+
+- `count`, `min`, `max`, `sum`, `avg` et `goodRatio` sont calculés en SQL, en un `GROUP BY` par id. `first`, `last` et `timeWeightedAvg` passent par les fonctions de référence du contrat sur les lignes, seulement quand ils sont demandés. Les deux chemins donnent les mêmes valeurs : la conformité le vérifie.
+- Mode WAL sur fichier : les lecteurs n'attendent jamais l'écrivain.
+
+Mesures sur 241 920 échantillons (4 ids, une semaine à 10 s), 1 008 buckets de 10 minutes, format colonnes :
+
+| Store | Ajout | `avg`, `min`, `max` | en plus `timeWeightedAvg` |
+|---|---|---|---|
+| mémoire | 829 ms | 17 ms | 17 ms |
+| SQLite fichier, WAL | 1 806 ms | 116 ms | 185 ms |
+
+SQLite paie la persistance. Au-delà de quelques semaines par requête, la réponse sera la question ouverte des pré-agrégats (rollups horaires), pas un autre moteur.
+
 ## Enregistreur (recorder)
 
 C'est un composant séparé, client de `scada` et de `history`, et le seul principal qui reçoit `history.record`.
@@ -145,7 +161,7 @@ C'est un composant séparé, client de `scada` et de `history`, et le seul princ
 ## Phasage
 
 1. **Fait** : contrat, `MemoryHistoryStore`, `HistoryBehavior`, `HistorySlotStore`, `IAccessGuard` avec le mode broker, déclaration, suite de conformité. 81 tests, dont 5 contre un vrai broker.
-2. **SQLite et recorder** : paquet `mcp-history-sqlite` (conformité incluse), `HistoryRecorder` sur le banc `motor01`.
+2. **SQLite** : fait. `mcp-history-sqlite` passe la conformité en mémoire, sur fichier et à travers un slot. **Recorder** : `HistoryRecorder` sur le banc `motor01`, à faire.
 3. **Routeur** : `RoutingHistoryStore` (routage UNS, agrégats de repli, `computedBy: "router"`), slots de stockage protégés.
 4. **Performance** : fait, format colonnes et option `payload: "structured"`.
 5. **InfluxDB, DuckDB, MySQL.**

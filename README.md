@@ -51,6 +51,13 @@ UNS ids and broker-decided access come from [mcp-uns](https://github.com/pandaGa
 | `history.append` | `history.record`, outcome reported |
 | `history.delete_range` | `history.admin`, outcome reported |
 
+## Packages
+
+| package | what |
+|---|---|
+| `@cyanmycelium/mcp-history` | the contract, `MemoryHistoryStore`, `HistoryBehavior`, `HistorySlotStore`, the declaration, and the conformance suite under `/conformance` |
+| `@cyanmycelium/mcp-history-sqlite` | `SqliteHistoryStore`: one local file, aggregated in SQL |
+
 ## Writing a store
 
 Implement `IHistoryStore`, then prove it:

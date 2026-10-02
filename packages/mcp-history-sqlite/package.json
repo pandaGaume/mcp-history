@@ -1,0 +1,45 @@
+{
+    "name": "@cyanmycelium/mcp-history-sqlite",
+    "version": "0.1.0",
+    "description": "SQLite store for the history.v1 contract: UNS-addressed time series in one local file, aggregated in SQL.",
+    "type": "module",
+    "license": "Apache-2.0",
+    "author": "Guillaume Pelletier (CyanMycelium)",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/pandaGaume/mcp-history.git",
+        "directory": "packages/mcp-history-sqlite"
+    },
+    "homepage": "https://github.com/pandaGaume/mcp-history#readme",
+    "bugs": {
+        "url": "https://github.com/pandaGaume/mcp-history/issues"
+    },
+    "keywords": ["mcp", "history", "historian", "time-series", "sqlite", "uns", "cyanmycelium"],
+    "engines": {
+        "node": ">=20.11.0"
+    },
+    "sideEffects": false,
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js"
+        }
+    },
+    "files": [
+        "dist"
+    ],
+    "scripts": {
+        "build": "tsup",
+        "prepublishOnly": "npm run build"
+    },
+    "dependencies": {
+        "@cyanmycelium/mcp-history": "^0.1.0",
+        "@cyanmycelium/mcp-uns": "^0.1.0",
+        "better-sqlite3": "^12.11.1"
+    },
+    "devDependencies": {
+        "@types/better-sqlite3": "^7.6.13"
+    }
+}
