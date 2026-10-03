@@ -7,6 +7,7 @@ const source = (path: string) => fileURLToPath(new URL(`./packages/${path}`, imp
 export default defineConfig({
     resolve: {
         alias: [
+            { find: /^@cyanmycelium\/mcp-history-recorder$/, replacement: source("mcp-history-recorder/src/index.ts") },
             { find: /^@cyanmycelium\/mcp-history-sqlite$/, replacement: source("mcp-history-sqlite/src/index.ts") },
             { find: "@cyanmycelium/mcp-history/conformance", replacement: source("mcp-history/src/conformance/index.ts") },
             { find: /^@cyanmycelium\/mcp-history$/, replacement: source("mcp-history/src/index.ts") },
@@ -14,6 +15,7 @@ export default defineConfig({
     },
     test: {
         include: ["tests/**/*.test.ts"],
+        exclude: ["tests/live/**"],
         environment: "node",
     },
 });

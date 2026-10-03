@@ -12,11 +12,12 @@
         "packages/*"
     ],
     "scripts": {
-        "build": "npm run build -w @cyanmycelium/mcp-history && npm run build -w @cyanmycelium/mcp-history-sqlite",
+        "build": "npm run build -w @cyanmycelium/mcp-history && npm run build -w @cyanmycelium/mcp-history-sqlite && npm run build -w @cyanmycelium/mcp-history-recorder",
         "typecheck": "tsc -p tsconfig.json --noEmit",
         "test": "vitest run",
         "format": "prettier --check \"packages/*/src/**/*.ts\" \"tests/**/*.ts\"",
-        "format:fix": "prettier --write \"packages/*/src/**/*.ts\" \"tests/**/*.ts\""
+        "format:fix": "prettier --write \"packages/*/src/**/*.ts\" \"tests/**/*.ts\"",
+        "test:live": "vitest run --config vitest.live.config.ts"
     },
     "devDependencies": {
         "@cyanmycelium/mcp-broker": "^1.6.0",
