@@ -9,6 +9,6 @@
             "@cyanmycelium/mcp-history/conformance": ["packages/mcp-history/src/conformance/index.ts"]
         }
     },
-    "include": ["packages/*/src/**/*.ts", "tests/**/*.ts", "vitest.config.ts"],
+    "include": ["packages/*/src/**/*.ts", "tests/**/*.ts", "bench/**/*.ts", "vitest.config.ts", "vitest.bench.config.ts"],
     "exclude": ["node_modules", "**/dist", "tests/live/**"]
 }

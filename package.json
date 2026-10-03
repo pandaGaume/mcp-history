@@ -17,7 +17,8 @@
         "test": "vitest run",
         "format": "prettier --check \"packages/*/src/**/*.ts\" \"tests/**/*.ts\"",
         "format:fix": "prettier --write \"packages/*/src/**/*.ts\" \"tests/**/*.ts\"",
-        "test:live": "vitest run --config vitest.live.config.ts"
+        "test:live": "vitest run --config vitest.live.config.ts",
+        "bench:append": "vitest run --config vitest.bench.config.ts"
     },
     "devDependencies": {
         "@cyanmycelium/mcp-broker": "^1.6.0",
