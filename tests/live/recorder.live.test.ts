@@ -209,7 +209,7 @@ describe.skipIf(!benchAvailable)("the recorder on the live motor bench, through 
     });
 
     it("records an unreachable motor as bad, once, and its return as good", async () => {
-        bench.stopSimulator();
+        await bench.stopSimulator();
         await sleep(2_500);
         bench.startSimulator();
         await until("motor back", () => writeRegister(0, 1520));
