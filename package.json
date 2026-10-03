@@ -23,11 +23,11 @@
     "devDependencies": {
         "@cyanmycelium/mcp-broker": "^1.6.0",
         "@cyanmycelium/mcp-broker-provider": "^0.3.0",
-        "@cyanmycelium/mcp-core": "^1.4.0",
+        "@cyanmycelium/mcp-core": "^1.4.1",
         "@types/node": "^20.11.0",
         "prettier": "^3.2.0",
         "tsup": "^8.5.1",
         "typescript": "^5.4.0",
-        "vitest": "^1.6.0"
+        "vitest": "^4.1.9"
     }
 }

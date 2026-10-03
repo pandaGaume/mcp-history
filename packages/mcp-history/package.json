@@ -51,7 +51,7 @@
         "@cyanmycelium/mcp-uns": "^0.1.0"
     },
     "peerDependencies": {
-        "@cyanmycelium/mcp-core": "^1.4.0",
+        "@cyanmycelium/mcp-core": "^1.4.1",
         "vitest": ">=1.6.0"
     },
     "peerDependenciesMeta": {
