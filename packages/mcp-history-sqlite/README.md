@@ -1,3 +1,6 @@
+[![CI](https://github.com/pandaGaume/mcp-history/actions/workflows/ci.yml/badge.svg)](https://github.com/pandaGaume/mcp-history/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+
 # @cyanmycelium/mcp-history-sqlite
 
 SQLite store for the [history.v1](https://github.com/pandaGaume/mcp-history) contract: UNS-addressed time series in one local file, for a workstation, a bench, or the store-and-forward buffer of a recorder.
