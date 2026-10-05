@@ -1,8 +1,10 @@
+[![mcp-broker: 1.6.0](docs/assets/mcp-broker-badge.svg)](https://github.com/pandaGaume/mcp-broker)
 [![CI](https://github.com/pandaGaume/mcp-history/actions/workflows/ci.yml/badge.svg)](https://github.com/pandaGaume/mcp-history/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/pandaGaume/mcp-history/main/docs/assets/logo.png" alt="mcp-history logo: the network-discovery panda holding an hourglass, a time series glowing on its chest" width="180">
+  <img src="docs/assets/mcp-broker-family.png" alt="MCP Broker Family" width="64" height="64" />
 </p>
 
 # mcp-history
